@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pi 5 Camera Stream with Distance Sensor</title>
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: white;
+            color: #333;
+        }
+        h1 {
+            color: #333;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .video-container {
+            margin: 20px auto;
+            max-width: 800px;
+            position: relative;
+        }
+        img.camera-stream {
+            width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .distance-display {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 20px 0;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+        }
+        #fullscreen-btn {
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+            margin-top: 20px;
+            display: inline-block;
+            margin-right: 20px;
+        }
+        #capture-btn {
+            background-color: #FF5722;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 16px;
+            display: inline-block;
+            margin-top: 20px;
+            margin-right: 20px;
+        }
+        #download-all-btn {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 16px;
+            display: inline-block;
+            margin-top: 20px;
+        }
+        #capture-btn:hover {
+            background-color: #E64A19;
+        }
+        #download-all-btn:hover {
+            background-color: #0b7dda;
+        }
+        .fullscreen-icon {
+            width: 40px;
+            height: auto;
+            transition: width 0.3s ease;
+        }
+        .header-logo {
+            max-width: 150px;
+            margin-bottom: 20px;
+        }
+        #exit-fullscreen-icon {
+            display: none; /* Hidden by default */
+        }
+        .controls-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        #capture-status {
+            display: none;
+            background-color: rgba(0, 150, 0, 0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        .gallery-section {
+            margin-top: 40px;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+        }
+        .gallery-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .gallery-item {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+            background-color: white;
+            transition: transform 0.2s;
+        }
+        .gallery-item:hover {
+            transform: scale(1.03);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .gallery-img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+        }
+        .gallery-actions {
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+        }
+        .gallery-download {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .gallery-download:hover {
+            background-color: #45a049;
+        }
+        .section-title {
+            font-size: 24px;
+            margin-bottom: 15px;
+            color: #333;
+            text-align: left;
+        }
+        .no-images {
+            padding: 20px;
+            font-style: italic;
+            color: #777;
+        }
+        /* Fullscreen styles */
+        :fullscreen #fullscreen-icon {
+            display: none;
+        }
+        :fullscreen #exit-fullscreen-icon {
+            display: inline;
+            width: 60px; /* Larger in fullscreen mode */
+        }
+        
+        /* Fullscreen overlay */
+        #fullscreen-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 9999;
+            cursor: pointer;
+        }
+        
+        #fullscreen-overlay h2 {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        
+        #fullscreen-overlay p {
+            font-size: 18px;
+        }
+        
+        #fullscreen-overlay button {
+            background-color: #FF5722;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 15px 30px;
+            cursor: pointer;
+            font-size: 20px;
+            margin-top: 30px;
+        }
+        
+        #fullscreen-overlay button:hover {
+            background-color: #E64A19;
+        }
+    </style>
+</head>
+<body>
+    <!-- Fullscreen overlay -->
+    <div id="fullscreen-overlay">
+        <h2>Camera Stream Application</h2>
+        <p>Tap the button below to enter fullscreen mode</p>
+        <button id="enter-fullscreen-btn">Enter Fullscreen</button>
+    </div>
+    
+    <div class="container" id="main-container">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Company Logo" class="header-logo">
+        <h1>Pi 5 Camera Stream with Distance Sensor</h1>
+        
+        <div class="distance-display">
+            Distance: <span id="distance-value">--</span> cm
+        </div>
+        
+        <div class="video-container">
+            <img src="{{ url_for('video_feed') }}" alt="Camera Stream" id="camera-stream" class="camera-stream">
+        </div>
+        
+        <div class="controls-container">
+            <button id="fullscreen-btn">
+                <img src="{{ url_for('static', filename='fullscreen.png') }}" alt="Enter Fullscreen" id="fullscreen-icon" class="fullscreen-icon">
+                <img src="{{ url_for('static', filename='exit-fullscreen.png') }}" alt="Exit Fullscreen" id="exit-fullscreen-icon" class="fullscreen-icon">
+            </button>
+            
+            <button id="capture-btn">? Capture Image</button>
+            <button id="download-all-btn">? Download All Images</button>
+        </div>
+        
+        <div id="capture-status">Image captured successfully!</div>
+        
+        <!-- Image Gallery Section -->
+        <div class="gallery-section">
+            <h2 class="section-title">Captured Images Gallery</h2>
+            <div id="gallery-container" class="gallery-container">
+                <div class="no-images">No images captured yet.</div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Function to enter fullscreen mode
+        function enterFullscreen() {
+            if (!document.fullscreenElement) {
+                // Enter fullscreen
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen();
+                } else if (document.documentElement.webkitRequestFullscreen) {
+                    document.documentElement.webkitRequestFullscreen();
+                } else if (document.documentElement.msRequestFullscreen) {
+                    document.documentElement.msRequestFullscreen();
+                }
+            }
+        }
+        
+        // Function to update distance reading
+        function updateDistance() {
+            fetch('/distance')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('distance-value').textContent = data.distance;
+                })
+                .catch(error => console.error('Error fetching distance:', error));
+        }
+        
+        // Function to capture image
+        function captureImage() {
+            fetch('/capture')
+                .then(response => response.json())
+                .then(data => {
+                    const statusElement = document.getElementById('capture-status');
+                    statusElement.textContent = data.message;
+                    statusElement.style.backgroundColor = 'rgba(0, 150, 0, 0.7)';
+                    statusElement.style.display = 'block';
+                    
+                    // Hide the status message after 3 seconds
+                    setTimeout(() => {
+                        statusElement.style.display = 'none';
+                    }, 3000);
+                    
+                    // Refresh the gallery
+                    loadGallery();
+                    
+                    // If supported, trigger a direct download in a new tab/window
+                    if (data.download_url) {
+                        // Create an invisible iframe for downloading
+                        const iframe = document.createElement('iframe');
+                        iframe.style.display = 'none';
+                        document.body.appendChild(iframe);
+                        iframe.src = data.download_url;
+                        
+                        // Remove the iframe after download initiates
+                        setTimeout(() => {
+                            document.body.removeChild(iframe);
+                        }, 2000);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error capturing image:', error);
+                    const statusElement = document.getElementById('capture-status');
+                    statusElement.textContent = 'Error capturing image!';
+                    statusElement.style.backgroundColor = 'rgba(150, 0, 0, 0.7)';
+                    statusElement.style.display = 'block';
+                    
+                    // Hide the error message after 3 seconds
+                    setTimeout(() => {
+                        statusElement.style.display = 'none';
+                    }, 3000);
+                });
+        }
+        
+        // Function to load gallery images
+        function loadGallery() {
+            fetch('/image_list')
+                .then(response => response.json())
+                .then(data => {
+                    const galleryContainer = document.getElementById('gallery-container');
+                    
+                    if (data.images.length === 0) {
+                        galleryContainer.innerHTML = '<div class="no-images">No images captured yet.</div>';
+                        return;
+                    }
+                    
+                    let galleryHTML = '';
+                    data.images.forEach(image => {
+                        galleryHTML += `
+                            <div class="gallery-item">
+                                <img src="${image.url}" alt="${image.filename}" class="gallery-img">
+                                <div class="gallery-actions">
+                                    <button class="gallery-download" onclick="downloadImage('${image.download_url}')">Download</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    galleryContainer.innerHTML = galleryHTML;
+                })
+                .catch(error => {
+                    console.error('Error loading gallery:', error);
+                });
+        }
+        
+        // Function to download an image without leaving fullscreen
+        function downloadImage(url) {
+            // Create an invisible iframe for downloading
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            document.body.appendChild(iframe);
+            iframe.src = url;
+            
+            // Remove the iframe after download initiates
+            setTimeout(() => {
+                document.body.removeChild(iframe);
+            }, 2000);
+        }
+        
+        // Function to download all images
+        function downloadAllImages() {
+            // Create an invisible iframe for downloading the zip
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            document.body.appendChild(iframe);
+            iframe.src = '/download_all';
+            
+            // Remove the iframe after download initiates
+            setTimeout(() => {
+                document.body.removeChild(iframe);
+            }, 2000);
+        }
+        
+        // Function to toggle fullscreen
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                // Enter fullscreen
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen();
+                } else if (document.documentElement.webkitRequestFullscreen) {
+                    document.documentElement.webkitRequestFullscreen();
+                } else if (document.documentElement.msRequestFullscreen) {
+                    document.documentElement.msRequestFullscreen();
+                }
+            } else {
+                // Exit fullscreen
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+            }
+        }
+        
+        // Function to update button appearance based on fullscreen state
+        function updateFullscreenButton() {
+            const fullscreenIcon = document.getElementById('fullscreen-icon');
+            const exitFullscreenIcon = document.getElementById('exit-fullscreen-icon');
+            
+            if (document.fullscreenElement) {
+                fullscreenIcon.style.display = 'none';
+                exitFullscreenIcon.style.display = 'inline';
+                
+                // Hide the fullscreen overlay if it's visible
+                const overlay = document.getElementById('fullscreen-overlay');
+                if (overlay) {
+                    overlay.style.display = 'none';
+                }
+            } else {
+                fullscreenIcon.style.display = 'inline';
+                exitFullscreenIcon.style.display = 'none';
+            }
+        }
+        
+        // Check if user preference for fullscreen is stored
+        function checkFullscreenPreference() {
+            return localStorage.getItem('preferFullscreen') === 'true';
+        }
+        
+        // Save fullscreen preference
+        function saveFullscreenPreference(value) {
+            localStorage.setItem('preferFullscreen', value.toString());
+        }
+        
+        // Initial setup
+        document.addEventListener('DOMContentLoaded', function() {
+            // Update distance and start interval
+            updateDistance();
+            setInterval(updateDistance, 1000);
+            
+            // Load gallery images
+            loadGallery();
+            
+            // Set up fullscreen button in the main interface
+            const fullscreenBtn = document.getElementById('fullscreen-btn');
+            fullscreenBtn.addEventListener('click', toggleFullscreen);
+            
+            // Set up enter fullscreen button in the overlay
+            const enterFullscreenBtn = document.getElementById('enter-fullscreen-btn');
+            enterFullscreenBtn.addEventListener('click', function() {
+                enterFullscreen();
+                saveFullscreenPreference(true);
+            });
+            
+            // Set up capture button
+            const captureBtn = document.getElementById('capture-btn');
+            captureBtn.addEventListener('click', captureImage);
+            
+            // Set up download all button
+            const downloadAllBtn = document.getElementById('download-all-btn');
+            downloadAllBtn.addEventListener('click', downloadAllImages);
+            
+            // Listen for fullscreen change events
+            document.addEventListener('fullscreenchange', updateFullscreenButton);
+            document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
+            document.addEventListener('mozfullscreenchange', updateFullscreenButton);
+            document.addEventListener('MSFullscreenChange', updateFullscreenButton);
+            
+            // Check if user previously preferred fullscreen
+            if (checkFullscreenPreference()) {
+                // Show the fullscreen overlay to prompt for a click
+                const overlay = document.getElementById('fullscreen-overlay');
+                overlay.style.display = 'flex';
+            } else {
+                // Hide the overlay if the user hasn't indicated preference for fullscreen
+                const overlay = document.getElementById('fullscreen-overlay');
+                overlay.style.display = 'none';
+            }
+            
+            // Make the fullscreen overlay clickable
+            const overlay = document.getElementById('fullscreen-overlay');
+            overlay.addEventListener('click', function(e) {
+                // Only trigger if clicking directly on the overlay, not on children
+                if (e.target === overlay) {
+                    enterFullscreen();
+                    saveFullscreenPreference(true);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

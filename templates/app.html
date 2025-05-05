@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pi 5 Camera Stream with Distance Sensor</title>
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-image: url("{{ url_for('static', filename='images/bg.png') }}");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            color: #333;
+        }
+        h1 {
+            color: #333;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .video-container {
+            margin: 20px auto;
+            max-width: 800px;
+            position: relative;
+            background-color: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        img.camera-stream {
+            width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .distance-display {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 20px 0;
+            padding: 10px;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 5px;
+            display: inline-block;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        #fullscreen-btn {
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+            margin-top: 20px;
+            display: inline-block;
+            margin-right: 20px;
+        }
+        #capture-btn {
+            background-color: #FF5722;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 16px;
+            display: inline-block;
+            margin-top: 20px;
+        }
+        #capture-btn:hover {
+            background-color: #E64A19;
+        }
+        .fullscreen-icon {
+            width: 40px;
+            height: auto;
+            transition: width 0.3s ease;
+        }
+        .header-logo {
+            max-width: 150px;
+            margin-bottom: 20px;
+        }
+        #exit-fullscreen-icon {
+            display: none; /* Hidden by default */
+        }
+        .controls-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px auto;
+            max-width: 800px;
+        }
+        #capture-status {
+            display: none;
+            background-color: rgba(0, 150, 0, 0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        .gallery-section {
+            margin-top: 40px;
+            padding: 20px;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            max-width: 900px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .gallery-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .gallery-item {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+            background-color: white;
+            transition: transform 0.2s;
+            cursor: pointer;
+        }
+        .gallery-item:hover {
+            transform: scale(1.03);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .gallery-img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+        }
+        .gallery-info {
+            padding: 10px;
+            font-size: 14px;
+            color: #555;
+            text-align: left;
+            border-top: 1px solid #eee;
+        }
+        .gallery-info p {
+            margin: 5px 0;
+        }
+        .image-name {
+            font-weight: bold;
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 8px;
+            word-wrap: break-word;
+            text-overflow: ellipsis;
+            overflow: hidden;
+        }
+        .gallery-actions {
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+            border-top: 1px solid #eee;
+        }
+        .gallery-download {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .gallery-download:hover {
+            background-color: #45a049;
+        }
+        .section-title {
+            font-size: 24px;
+            margin-bottom: 15px;
+            color: #333;
+            text-align: left;
+        }
+        .no-images {
+            padding: 20px;
+            font-style: italic;
+            color: #777;
+        }
+        /* Fullscreen styles */
+        :fullscreen #fullscreen-icon {
+            display: none;
+        }
+        :fullscreen #exit-fullscreen-icon {
+            display: inline;
+            width: 60px; /* Larger in fullscreen mode */
+        }
+        
+        /* Fullscreen overlay */
+        #fullscreen-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 9999;
+            cursor: pointer;
+        }
+        
+        #fullscreen-overlay h2 {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        
+        #fullscreen-overlay p {
+            font-size: 18px;
+        }
+        
+        #fullscreen-overlay button {
+            background-color: #FF5722;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 15px 30px;
+            cursor: pointer;
+            font-size: 20px;
+            margin-top: 30px;
+        }
+        
+        #fullscreen-overlay button:hover {
+            background-color: #E64A19;
+        }
+        
+        /* Styles for the main heading with background */
+        h1 {
+            display: inline-block;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 15px 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        /* Lightbox styles */
+        .lightbox {
+            display: none;
+            position: fixed;
+            z-index: 9999;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            overflow: auto;
+        }
+        
+        .lightbox-content {
+            max-width: 90%;
+            max-height: 80%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .lightbox-img {
+            max-width: 100%;
+            max-height: 80vh;
+            object-fit: contain;
+            border: 2px solid white;
+            border-radius: 4px;
+        }
+
+        .lightbox-info {
+            color: white;
+            background-color: rgba(0, 0, 0, 0.6);
+            padding: 15px;
+            margin-top: 15px;
+            border-radius: 4px;
+            text-align: left;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .lightbox-close {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: white;
+            font-size: 30px;
+            font-weight: bold;
+            cursor: pointer;
+            background: none;
+            border: none;
+            z-index: 10000;
+        }
+
+        .lightbox-controls {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+
+        .lightbox-download {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 10px 15px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+
+        .lightbox-download:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <!-- Fullscreen overlay -->
+    <div id="fullscreen-overlay">
+        <h2>Camera Stream Application</h2>
+        <p>Tap the button below to enter fullscreen mode</p>
+        <button id="enter-fullscreen-btn">Enter Fullscreen</button>
+    </div>
+    
+    <div class="container" id="main-container">
+        <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Company Logo" class="header-logo">
+        <h1>Pi 5 Camera Stream with Distance Sensor</h1>
+        
+        <div class="distance-display">
+            Distance: <span id="distance-value">--</span> cm
+        </div>
+        
+        <div class="video-container">
+            <img src="{{ url_for('video_feed') }}" alt="Camera Stream" id="camera-stream" class="camera-stream">
+        </div>
+        
+        <div class="controls-container">
+            <button id="fullscreen-btn">
+                <img src="{{ url_for('static', filename='fullscreen.png') }}" alt="Enter Fullscreen" id="fullscreen-icon" class="fullscreen-icon">
+                <img src="{{ url_for('static', filename='exit-fullscreen.png') }}" alt="Exit Fullscreen" id="exit-fullscreen-icon" class="fullscreen-icon">
+            </button>
+            
+            <button id="capture-btn">? Capture Image</button>
+        </div>
+        
+        <div id="capture-status">Image captured successfully!</div>
+        
+        <!-- Image Gallery Section -->
+        <div class="gallery-section">
+            <h2 class="section-title">Captured Images Gallery</h2>
+            <div id="gallery-container" class="gallery-container">
+                <div class="no-images">No images captured yet.</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Lightbox Modal -->
+    <div id="image-lightbox" class="lightbox">
+        <button class="lightbox-close">&times;</button>
+        <div class="lightbox-content">
+            <img id="lightbox-img" class="lightbox-img" src="" alt="Enlarged image">
+            <div class="lightbox-info">
+                <h3 id="lightbox-title"></h3>
+                <p id="lightbox-date"></p>
+                <p id="lightbox-distance"></p>
+            </div>
+            <div class="lightbox-controls">
+                <button id="lightbox-download" class="lightbox-download">Download</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Function to enter fullscreen mode
+        function enterFullscreen() {
+            if (!document.fullscreenElement) {
+                // Enter fullscreen
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen();
+                } else if (document.documentElement.webkitRequestFullscreen) {
+                    document.documentElement.webkitRequestFullscreen();
+                } else if (document.documentElement.msRequestFullscreen) {
+                    document.documentElement.msRequestFullscreen();
+                }
+            }
+        }
+        
+        // Function to update distance reading
+        function updateDistance() {
+            fetch('/distance')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('distance-value').textContent = data.distance;
+                })
+                .catch(error => console.error('Error fetching distance:', error));
+        }
+        
+        // Function to capture image
+        function captureImage() {
+            fetch('/capture')
+                .then(response => response.json())
+                .then(data => {
+                    const statusElement = document.getElementById('capture-status');
+                    statusElement.textContent = data.message;
+                    statusElement.style.backgroundColor = 'rgba(0, 150, 0, 0.7)';
+                    statusElement.style.display = 'block';
+                    
+                    // Hide the status message after 3 seconds
+                    setTimeout(() => {
+                        statusElement.style.display = 'none';
+                    }, 3000);
+                    
+                    // Refresh the gallery
+                    loadGallery();
+                })
+                .catch(error => {
+                    console.error('Error capturing image:', error);
+                    const statusElement = document.getElementById('capture-status');
+                    statusElement.textContent = 'Error capturing image!';
+                    statusElement.style.backgroundColor = 'rgba(150, 0, 0, 0.7)';
+                    statusElement.style.display = 'block';
+                    
+                    // Hide the error message after 3 seconds
+                    setTimeout(() => {
+                        statusElement.style.display = 'none';
+                    }, 3000);
+                });
+        }
+        
+        // Function to open lightbox
+        function openLightbox(imageUrl, title, date, distance, downloadUrl) {
+            const lightbox = document.getElementById('image-lightbox');
+            const lightboxImg = document.getElementById('lightbox-img');
+            const lightboxTitle = document.getElementById('lightbox-title');
+            const lightboxDate = document.getElementById('lightbox-date');
+            const lightboxDistance = document.getElementById('lightbox-distance');
+            const lightboxDownload = document.getElementById('lightbox-download');
+            
+            // Set the image and info
+            lightboxImg.src = imageUrl;
+            lightboxTitle.textContent = title;
+            lightboxDate.textContent = `Date: ${date}`;
+            lightboxDistance.textContent = distance ? `Distance: ${distance} cm` : '';
+            
+            // Set up download button
+            lightboxDownload.onclick = function() {
+                downloadImage(downloadUrl);
+            };
+            
+            // Show the lightbox
+            lightbox.style.display = 'flex';
+            
+            // Add event listener to close lightbox when clicking outside of image
+            lightbox.addEventListener('click', function(e) {
+                if (e.target === lightbox) {
+                    closeLightbox();
+                }
+            });
+            
+            // Prevent scrolling of the background
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Function to close lightbox
+        function closeLightbox() {
+            const lightbox = document.getElementById('image-lightbox');
+            lightbox.style.display = 'none';
+            
+            // Re-enable scrolling
+            document.body.style.overflow = 'auto';
+        }
+        
+        // Function to load gallery images
+        function loadGallery() {
+            fetch('/image_list')
+                .then(response => response.json())
+                .then(data => {
+                    const galleryContainer = document.getElementById('gallery-container');
+                    
+                    if (data.images.length === 0) {
+                        galleryContainer.innerHTML = '<div class="no-images">No images captured yet.</div>';
+                        return;
+                    }
+                    
+                    let galleryHTML = '';
+                    data.images.forEach(image => {
+                        const imageName = image.name || image.filename || 'Image';
+                        const timestamp = new Date(image.timestamp || Date.now()).toLocaleString();
+                        const distanceReading = image.distance ? `${image.distance} cm` : '';
+                        
+                        galleryHTML += `
+                            <div class="gallery-item" data-image-id="${image.id}">
+                                <img src="${image.url}" alt="${imageName}" class="gallery-img" 
+                                     onclick="openLightbox('${image.url}', '${imageName}', '${timestamp}', '${distanceReading}', '${image.download_url}')">
+                                <div class="gallery-info">
+                                    <div class="image-name">${imageName}</div>
+                                    <p><strong>Date:</strong> ${timestamp}</p>
+                                    <p>${distanceReading ? '<strong>Distance:</strong> ' + distanceReading : ''}</p>
+                                </div>
+                                <div class="gallery-actions">
+                                    <button class="gallery-download" onclick="downloadImage('${image.download_url}')">Download</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    galleryContainer.innerHTML = galleryHTML;
+                })
+                .catch(error => {
+                    console.error('Error loading gallery:', error);
+                });
+        }
+        
+        // Function to download an image without leaving fullscreen
+        function downloadImage(url) {
+            // Create an invisible iframe for downloading
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            document.body.appendChild(iframe);
+            iframe.src = url;
+            
+            // Remove the iframe after download initiates
+            setTimeout(() => {
+                document.body.removeChild(iframe);
+            }, 2000);
+        }
+        
+        // Function to toggle fullscreen
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                // Enter fullscreen
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen();
+                } else if (document.documentElement.webkitRequestFullscreen) {
+                    document.documentElement.webkitRequestFullscreen();
+                } else if (document.documentElement.msRequestFullscreen) {
+                    document.documentElement.msRequestFullscreen();
+                }
+            } else {
+                // Exit fullscreen
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+            }
+        }
+        
+        // Function to update button appearance based on fullscreen state
+        function updateFullscreenButton() {
+            const fullscreenIcon = document.getElementById('fullscreen-icon');
+            const exitFullscreenIcon = document.getElementById('exit-fullscreen-icon');
+            
+            if (document.fullscreenElement) {
+                fullscreenIcon.style.display = 'none';
+                exitFullscreenIcon.style.display = 'inline';
+                
+                // Hide the fullscreen overlay if it's visible
+                const overlay = document.getElementById('fullscreen-overlay');
+                if (overlay) {
+                    overlay.style.display = 'none';
+                }
+            } else {
+                fullscreenIcon.style.display = 'inline';
+                exitFullscreenIcon.style.display = 'none';
+            }
+        }
+        
+        // Check if user preference for fullscreen is stored
+        function checkFullscreenPreference() {
+            return localStorage.getItem('preferFullscreen') === 'true';
+        }
+        
+        // Save fullscreen preference
+        function saveFullscreenPreference(value) {
+            localStorage.setItem('preferFullscreen', value.toString());
+        }
+        
+        // Initial setup
+        document.addEventListener('DOMContentLoaded', function() {
+            // Update distance and start interval
+            updateDistance();
+            setInterval(updateDistance, 1000);
+            
+            // Load gallery images
+            loadGallery();
+            
+            // Set up fullscreen button in the main interface
+            const fullscreenBtn = document.getElementById('fullscreen-btn');
+            fullscreenBtn.addEventListener('click', toggleFullscreen);
+            
+            // Set up enter fullscreen button in the overlay
+            const enterFullscreenBtn = document.getElementById('enter-fullscreen-btn');
+            enterFullscreenBtn.addEventListener('click', function() {
+                enterFullscreen();
+                saveFullscreenPreference(true);
+            });
+            
+            // Set up capture button
+            const captureBtn = document.getElementById('capture-btn');
+            captureBtn.addEventListener('click', captureImage);
+            
+            // Listen for fullscreen change events
+            document.addEventListener('fullscreenchange', updateFullscreenButton);
+            document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
+            document.addEventListener('mozfullscreenchange', updateFullscreenButton);
+            document.addEventListener('MSFullscreenChange', updateFullscreenButton);
+            
+            // Check if user previously preferred fullscreen
+            if (checkFullscreenPreference()) {
+                // Show the fullscreen overlay to prompt for a click
+                const overlay = document.getElementById('fullscreen-overlay');
+                overlay.style.display = 'flex';
+            } else {
+                // Hide the overlay if the user hasn't indicated preference for fullscreen
+                const overlay = document.getElementById('fullscreen-overlay');
+                overlay.style.display = 'none';
+            }
+            
+            // Make the fullscreen overlay clickable
+            const overlay = document.getElementById('fullscreen-overlay');
+            overlay.addEventListener('click', function(e) {
+                // Only trigger if clicking directly on the overlay, not on children
+                if (e.target === overlay) {
+                    enterFullscreen();
+                    saveFullscreenPreference(true);
+                }
+            });
+            
+            // Set up lightbox close button
+            const lightboxCloseBtn = document.querySelector('.lightbox-close');
+            lightboxCloseBtn.addEventListener('click', closeLightbox);
+            
+            // Set up keyboard navigation for lightbox
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    closeLightbox();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
